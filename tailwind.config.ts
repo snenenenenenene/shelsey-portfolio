@@ -8,11 +8,28 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      backgroundImage: {
-        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "gradient-conic":
-          "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+      fontFamily: {
+        daydream: ["Daydream", "sans-serif"],
+        "rumble": ["Rumble", "sans-serif"],
+        popfun: ["Popfun", "sans-serif"],
+        "super-funky": ["Super Funky", "sans-serif"],
       },
+      colors: {
+        light: {
+          yellow: "#FFF501", 
+          purple: "#AA9BFE",
+          orange: "#FF8A00",
+          green: "#36AF84",
+          blue: "#0094FF",
+          red: "#EA1718",
+          "pink": "#E5A7BC",
+          "salmon": "#F4CEC4",
+          purple: "#DECBF4" ,
+          "purple-light" : "#F4F1E5",
+          "text" : "#000000",
+          "text-light" : "#F4F4F4",
+        }
+      }
     },
   },
   plugins: [],
