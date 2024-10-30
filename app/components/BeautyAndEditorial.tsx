@@ -118,7 +118,7 @@ export default function BeautyAndEditorial() {
 		const cards = cardsRef.current;
 		const totalCards = cards.length;
 
-		function flickCard(card) {
+		function flickCard(card: any) {
 			const randomAngle = (Math.random() - 0.5) * 60;
 			const xMove = (Math.random() - 0.5) * window.innerWidth;
 			const yMove = -window.innerHeight;
