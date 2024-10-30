@@ -13,7 +13,7 @@ gsap.registerPlugin(ScrollTrigger);
 export default function Home() {
   const mainRef = useRef(null);
   const horizontalRef = useRef(null);
-  const sectionsRef = useRef(null);
+  const sectionsRef: any = useRef(null);
 
   useEffect(() => {
     const sections = gsap.utils.toArray("main > section");
@@ -21,7 +21,7 @@ export default function Home() {
     sections.forEach((section, i) => {
       if (i !== 2) { // Skip FaceAndBodypaint section
         ScrollTrigger.create({
-          trigger: section,
+          trigger: section as any,
           start: "top top",
           pin: true,
           pinSpacing: false,
