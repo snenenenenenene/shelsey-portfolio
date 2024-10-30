@@ -24,7 +24,7 @@ const config: Config = {
           red: "#EA1718",
           "pink": "#E5A7BC",
           "salmon": "#F4CEC4",
-          purple: "#DECBF4" ,
+          // purple: "#DECBF4" ,
           "purple-light" : "#F4F1E5",
           "text" : "#000000",
           "text-light" : "#F4F4F4",
