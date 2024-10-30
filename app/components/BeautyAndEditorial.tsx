@@ -111,7 +111,7 @@ const MorphingGradientBackground = () => {
 
 export default function BeautyAndEditorial() {
 	const containerRef = useRef(null);
-	const cardsRef = useRef([]);
+	const cardsRef: any = useRef([]);
 
 	useEffect(() => {
 		const container = containerRef.current;
@@ -135,7 +135,7 @@ export default function BeautyAndEditorial() {
 		}
 
 		function updateCardProperties() {
-			cards.forEach((card, index) => {
+			cards.forEach((card: any) => {
 				const rect = card.getBoundingClientRect();
 				const centerY = rect.top + rect.height / 2;
 				const viewportHeight = window.innerHeight;
@@ -151,7 +151,7 @@ export default function BeautyAndEditorial() {
 			});
 		}
 
-		cards.forEach((card, index) => {
+		cards.forEach((card: any, index: any) => {
 			const randomTilt = (Math.random() - 0.5) * 10;
 
 			gsap.set(card, {
