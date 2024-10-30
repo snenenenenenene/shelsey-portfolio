@@ -16,7 +16,7 @@ export default function SFXAndGrime() {
 	const [mousePosition, setMousePosition] = useState({ x: '50%', y: '50%' });
 	const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-	const handleMouseMove = useCallback((event) => {
+	const handleMouseMove = useCallback((event: any) => {
 		const x = (event.clientX / window.innerWidth) * 100;
 		const y = (event.clientY / window.innerHeight) * 100;
 		setMousePosition({ x: `${x}%`, y: `${y}%` });
