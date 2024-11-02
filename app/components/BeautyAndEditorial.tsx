@@ -3,8 +3,11 @@
 import React, { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { ScrollToPlugin } from "gsap/ScrollToPlugin";
+import ThreeJSImage from "./ThreeJSImage";
+import MorphingGradientBackground from "./MorphingGradientBackground";
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
 const images = [
 	{ id: 1, src: "over_the_top_glamour_1.jpg", alt: "Over the Top Glamour 1" },
@@ -21,199 +24,172 @@ const images = [
 	{ id: 12, src: "retro_80s_2.jpg", alt: "Retro 80s 2" },
 ];
 
-const MorphingGradientBackground = () => {
-	const interBubbleRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		let curX = 0;
-		let curY = 0;
-		let tgX = 0;
-		let tgY = 0;
-
-		function move() {
-			if (interBubbleRef.current) {
-				curX += (tgX - curX) / 20;
-				curY += (tgY - curY) / 20;
-				interBubbleRef.current.style.transform = `translate(${Math.round(curX)}px, ${Math.round(curY)}px)`;
-			}
-			requestAnimationFrame(move);
-		}
-
-		window.addEventListener('mousemove', (event) => {
-			tgX = event.clientX;
-			tgY = event.clientY;
-		});
-
-		move();
-
-		return () => {
-			window.removeEventListener('mousemove', () => { });
-		};
-	}, []);
-
-	return (
-		<div className="absolute inset-0 overflow-hidden">
-			<svg className="hidden">
-				<filter id="goo">
-					<feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
-					<feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -8" result="goo" />
-					<feBlend in="SourceGraphic" in2="goo" />
-				</filter>
-			</svg>
-			<div className="gradients-container absolute inset-0" style={{ filter: 'url(#goo) blur(40px)' }}>
-				<div className="g1 absolute rounded-full" style={{
-					width: '80%', height: '80%',
-					top: '10%', left: '10%',
-					background: 'radial-gradient(circle at center, rgba(18, 113, 255, 0.8) 0, rgba(18, 113, 255, 0) 50%)',
-					mixBlendMode: 'hard-light',
-					animation: 'moveVertical 30s ease infinite'
-				}} />
-				<div className="g2 absolute rounded-full" style={{
-					width: '80%', height: '80%',
-					top: '10%', left: '10%',
-					background: 'radial-gradient(circle at center, rgba(221, 74, 255, 0.8) 0, rgba(221, 74, 255, 0) 50%)',
-					mixBlendMode: 'hard-light',
-					animation: 'moveInCircle 20s reverse infinite'
-				}} />
-				<div className="g3 absolute rounded-full" style={{
-					width: '80%', height: '80%',
-					top: '30%', left: '-10%',
-					background: 'radial-gradient(circle at center, rgba(100, 220, 255, 0.8) 0, rgba(100, 220, 255, 0) 50%)',
-					mixBlendMode: 'hard-light',
-					animation: 'moveInCircle 40s linear infinite'
-				}} />
-				<div className="g4 absolute rounded-full" style={{
-					width: '80%', height: '80%',
-					top: '10%', left: '10%',
-					background: 'radial-gradient(circle at center, rgba(200, 50, 50, 0.8) 0, rgba(200, 50, 50, 0) 50%)',
-					mixBlendMode: 'hard-light',
-					animation: 'moveHorizontal 40s ease infinite',
-					opacity: 0.7
-				}} />
-				<div className="g5 absolute rounded-full" style={{
-					width: '160%', height: '160%',
-					top: '-30%', left: '-30%',
-					background: 'radial-gradient(circle at center, rgba(180, 180, 50, 0.8) 0, rgba(180, 180, 50, 0) 50%)',
-					mixBlendMode: 'hard-light',
-					animation: 'moveInCircle 20s ease infinite'
-				}} />
-				<div ref={interBubbleRef} className="interactive absolute rounded-full" style={{
-					width: '100%', height: '100%',
-					top: '-50%', left: '-50%',
-					background: 'radial-gradient(circle at center, rgba(140, 100, 255, 0.8) 0, rgba(140, 100, 255, 0) 50%)',
-					mixBlendMode: 'hard-light',
-					opacity: 0.7
-				}} />
-			</div>
-		</div>
-	);
-};
-
 export default function BeautyAndEditorial() {
-	const containerRef = useRef(null);
-	const cardsRef: any = useRef([]);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
+	const currentIndexRef = useRef(0);
+	const isAnimatingRef = useRef(false);
 
 	useEffect(() => {
 		const container = containerRef.current;
-		const cards = cardsRef.current;
+		if (!container) return;
+
+		const cards = cardsRef.current.filter(Boolean);
 		const totalCards = cards.length;
+		let scrollTween: gsap.core.Tween;
 
-		function flickCard(card: any) {
-			const randomAngle = (Math.random() - 0.5) * 60;
-			const xMove = (Math.random() - 0.5) * window.innerWidth;
-			const yMove = -window.innerHeight;
+		// Set up scroll sections
+		const scrollHeight = window.innerHeight * (totalCards + 1); // Added +1 to ensure we reach all cards
+		container.style.height = `${scrollHeight}px`;
 
-			gsap.to(card, {
-				x: xMove,
-				y: yMove,
-				rotation: randomAngle,
-				scale: 0.8,
-				opacity: 0,
-				duration: 0.5,
-				ease: "power2.in",
-			});
-		}
+		const snapToIndex = (index: number) => {
+			if (isAnimatingRef.current) return;
+			isAnimatingRef.current = true;
 
-		function updateCardProperties() {
-			cards.forEach((card: any) => {
-				const rect = card.getBoundingClientRect();
-				const centerY = rect.top + rect.height / 2;
-				const viewportHeight = window.innerHeight;
-				const distanceFromTop = Math.max(0, centerY);
-				const progress = 1 - (distanceFromTop / viewportHeight);
+			const y = index * window.innerHeight;
+			const startCard = cards[currentIndexRef.current];
+			const targetCard = cards[index];
 
-				gsap.to(card, {
-					scale: 0.8 + (0.2 * progress),
-					filter: `brightness(${0.5 + 0.5 * progress})`,
-					duration: 0.1,
-					ease: "none",
+			if (startCard && targetCard) {
+				// Animate current card out
+				gsap.to(startCard, {
+					x: (Math.random() - 0.5) * window.innerWidth * 2,
+					y: index > currentIndexRef.current ? -window.innerHeight * 1.5 : window.innerHeight * 1.5,
+					rotation: (Math.random() - 0.5) * 60,
+					scale: 0.8,
+					opacity: 0,
+					duration: 0.8,
+					ease: "power2.in",
 				});
-			});
-		}
 
-		cards.forEach((card: any, index: any) => {
-			const randomTilt = (Math.random() - 0.5) * 10;
-
-			gsap.set(card, {
-				zIndex: totalCards - index,
-				rotation: randomTilt,
-				scale: 0.8,
-				filter: "brightness(0.5)",
-			});
-
-			ScrollTrigger.create({
-				trigger: container,
-				start: `top+=${index * (100 / totalCards)}% top`,
-				end: `top+=${(index + 1) * (100 / totalCards)}% top`,
-				onEnter: () => flickCard(card),
-				onEnterBack: () => {
-					gsap.to(card, {
+				// Animate target card in
+				gsap.fromTo(targetCard,
+					{
+						x: (Math.random() - 0.5) * window.innerWidth * 2,
+						y: index > currentIndexRef.current ? window.innerHeight * 1.5 : -window.innerHeight * 1.5,
+						rotation: (Math.random() - 0.5) * 60,
+						scale: 0.8,
+						opacity: 0,
+					},
+					{
 						x: 0,
 						y: 0,
-						rotation: randomTilt,
+						rotation: (Math.random() - 0.5) * 20,
+						scale: 1,
 						opacity: 1,
-						duration: 0.5,
+						duration: 0.8,
 						ease: "power2.out",
-						onComplete: updateCardProperties,
-					});
-				},
-				onUpdate: updateCardProperties,
+						onComplete: () => {
+							isAnimatingRef.current = false;
+						}
+					}
+				);
+			}
+
+			currentIndexRef.current = index;
+		};
+
+		// Set up initial card states
+		cards.forEach((card, index) => {
+			if (!card) return;
+			gsap.set(card, {
+				zIndex: totalCards - index,
+				rotation: (Math.random() - 0.5) * 20,
+				scale: 1,
+				opacity: index === 0 ? 1 : 0,
+				filter: "brightness(0.8)",
 			});
 		});
 
-		ScrollTrigger.create({
+		// Handle wheel events for snapping
+		const handleWheel = (e: WheelEvent) => {
+			e.preventDefault();
+
+			if (isAnimatingRef.current) return;
+
+			const delta = e.deltaY;
+			let nextIndex = currentIndexRef.current;
+
+			if (delta > 0 && nextIndex < totalCards - 1) {
+				nextIndex++;
+			} else if (delta < 0 && nextIndex > 0) {
+				nextIndex--;
+			}
+
+			if (nextIndex !== currentIndexRef.current) {
+				snapToIndex(nextIndex);
+			}
+		};
+
+		// Handle keyboard navigation
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (isAnimatingRef.current) return;
+
+			let nextIndex = currentIndexRef.current;
+
+			if (e.key === 'ArrowUp' && nextIndex > 0) {
+				nextIndex--;
+				snapToIndex(nextIndex);
+			} else if (e.key === 'ArrowDown' && nextIndex < totalCards - 1) {
+				nextIndex++;
+				snapToIndex(nextIndex);
+			}
+		};
+
+		// Add event listeners
+		container.addEventListener('wheel', handleWheel, { passive: false });
+		window.addEventListener('keydown', handleKeyDown);
+
+		// Set up ScrollTrigger
+		const st = ScrollTrigger.create({
 			trigger: container,
 			start: "top top",
-			end: "bottom bottom",
-			onUpdate: updateCardProperties,
+			end: `+=${scrollHeight}`,
+			onUpdate: (self) => {
+				if (!isAnimatingRef.current) {
+					const newIndex = Math.round(self.progress * (totalCards - 1));
+					if (newIndex !== currentIndexRef.current) {
+						snapToIndex(newIndex);
+					}
+				}
+			}
 		});
 
 		return () => {
-			ScrollTrigger.getAll().forEach(trigger => trigger.kill());
+			container.removeEventListener('wheel', handleWheel);
+			window.removeEventListener('keydown', handleKeyDown);
+			if (st) st.kill();
+			if (scrollTween) scrollTween.kill();
 		};
 	}, []);
 
 	return (
-		<div ref={containerRef} className="h-[500vh] relative">
-			<MorphingGradientBackground />
-			<div className="sticky top-0 left-0 w-full h-screen overflow-hidden flex items-center justify-center">
-				<div className="w-[80%] h-[80%] relative z-10">
-					{images.map((image, index) => (
-						<div
-							key={image.id}
-							// @ts-ignore
-							ref={el => cardsRef.current[index] = el}
-							className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-full"
-						>
-							<img
-								src={`/assets/beauty_and_editorial/${image.src}`}
-								alt={image.alt}
-								className="w-full h-full object-contain"
-							/>
-						</div>
-					))}
+		<section ref={containerRef} className="relative w-screen border-b-4 border-black bg-light-purple">
+			<div className="sticky top-0 h-screen overflow-hidden">
+				<MorphingGradientBackground />
+				<div className="absolute inset-0 flex items-start justify-center pt-20"> {/* Changed to items-start and pt-20 */}
+					<div className="w-[60vw] h-[60vh] md:w-[55vw] md:h-[55vh] lg:w-[50vw] lg:h-[50vh] relative">
+						{images.map((image, index) => (
+							<div
+								key={image.id}
+								ref={el => cardsRef.current[index] = el}
+								className="absolute inset-0 w-full h-full"
+								style={{
+									perspective: '1000px',
+									transformStyle: 'preserve-3d',
+								}}
+							>
+								<ThreeJSImage
+									src={`/assets/beauty_and_editorial/${image.src}`}
+									alt={image.alt}
+									priority={index < 2}
+									className="w-full h-full"
+								/>
+							</div>
+						))}
+					</div>
 				</div>
 			</div>
-		</div>
+		</section>
 	);
 }

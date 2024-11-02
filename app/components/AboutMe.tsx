@@ -3,7 +3,7 @@ import Image from "next/image";
 
 export default function AboutMe() {
 	return (
-		<div className="flex sm:flex-row border-b-4 h-screen border-black flex-col bg-light-purple p-10 min-h-[70vh]">
+		<div className="flex sm:flex-row h-screen border-black flex-col bg-light-purple p-10 min-h-[70vh]">
 			<div className="flex relative w-full h-full">
 				<div className="bg-[#60367B] absolute left-[30%] top-[-4%] h-[100vh] w-[100vh] rounded-full" />
 				<div className="absolute left-[35%] bottom-[5%] w-[90vh] h-[90vh]">
