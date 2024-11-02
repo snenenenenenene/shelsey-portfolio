@@ -3,186 +3,224 @@
 import React, { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import ThreeJSImage from "./ThreeJSImage";
 import MorphingGradientBackground from "./MorphingGradientBackground";
+import Marquee from "react-fast-marquee";
 
-gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+gsap.registerPlugin(ScrollTrigger);
 
+// Reorganized and grouped images for better visual flow
 const images = [
-	{ id: 1, src: "over_the_top_glamour_1.jpg", alt: "Over the Top Glamour 1" },
-	{ id: 2, src: "over_the_top_glamour_2.jpg", alt: "Over the Top Glamour 2" },
-	{ id: 3, src: "over_the_top_glamour_3.jpg", alt: "Over the Top Glamour 3" },
-	{ id: 4, src: "retro_60s.jpg", alt: "Retro 60s" },
-	{ id: 5, src: "colorful_trend.jpg", alt: "Colorful Trend" },
-	{ id: 6, src: "experimental_1.jpg", alt: "Experimental 1" },
-	{ id: 7, src: "experimental_2.jpg", alt: "Experimental 2" },
-	{ id: 8, src: "lilac_makeup.jpg", alt: "Lilac Makeup" },
-	{ id: 9, src: "new_retro.jpg", alt: "New Retro" },
-	{ id: 10, src: "ornamental.jpg", alt: "Ornamental" },
-	{ id: 11, src: "retro_80s_1.jpg", alt: "Retro 80s 1" },
-	{ id: 12, src: "retro_80s_2.jpg", alt: "Retro 80s 2" },
+	// Group 1: Vertical portraits
+	{ id: 1, src: "over_the_top_glamour_1.jpg", alt: "Over the Top Glamour 1", orientation: "vertical" },
+	{ id: 3, src: "over_the_top_glamour_3.jpg", alt: "Over the Top Glamour 3", orientation: "vertical" },
+	{ id: 2, src: "over_the_top_glamour_2.jpg", alt: "Over the Top Glamour 2", orientation: "vertical" },
+
+	// Group 2: Colorful compositions
+	{ id: 5, src: "colorful_trend.jpg", alt: "Colorful Trend", orientation: "horizontal" },
+	{ id: 8, src: "lilac_makeup.jpg", alt: "Lilac Makeup", orientation: "vertical" },
+	{ id: 6, src: "experimental_1.jpg", alt: "Experimental 1", orientation: "horizontal" },
+
+	// Group 3: Artistic shots
+	{ id: 9, src: "new_retro.jpg", alt: "New Retro", orientation: "vertical" },
+	{ id: 4, src: "retro_60s.jpg", alt: "Retro 60s", orientation: "horizontal" },
+	{ id: 7, src: "experimental_2.jpg", alt: "Experimental 2", orientation: "vertical" },
+
+	// Group 4: Bold looks
+	{ id: 10, src: "ornamental.jpg", alt: "Ornamental", orientation: "vertical" },
+	{ id: 11, src: "retro_80s_1.jpg", alt: "Retro 80s 1", orientation: "horizontal" },
+	{ id: 12, src: "retro_80s_2.jpg", alt: "Retro 80s 2", orientation: "vertical" },
 ];
+
+const groupedImages = images.reduce((acc, _, index) => {
+	if (index % 3 === 0) {
+		acc.push(images.slice(index, index + 3));
+	}
+	return acc;
+}, [] as typeof images[]);
 
 export default function BeautyAndEditorial() {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
-	const currentIndexRef = useRef(0);
+	const currentGroupRef = useRef(0);
 	const isAnimatingRef = useRef(false);
+	const wheelTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+	const lastWheelTime = useRef(Date.now());
+	const wheelDeltaY = useRef(0);
+	const hasReachedEndRef = useRef(false);
 
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
 
 		const cards = cardsRef.current.filter(Boolean);
-		const totalCards = cards.length;
-		let scrollTween: gsap.core.Tween;
+		const totalGroups = groupedImages.length;
 
-		// Set up scroll sections
-		const scrollHeight = window.innerHeight * (totalCards + 1); // Added +1 to ensure we reach all cards
+		const scrollHeight = window.innerHeight * totalGroups;
 		container.style.height = `${scrollHeight}px`;
 
-		const snapToIndex = (index: number) => {
-			if (isAnimatingRef.current) return;
+		const snapToGroup = (groupIndex: number) => {
+			if (isAnimatingRef.current || groupIndex === currentGroupRef.current) return;
 			isAnimatingRef.current = true;
 
-			const y = index * window.innerHeight;
-			const startCard = cards[currentIndexRef.current];
-			const targetCard = cards[index];
+			const currentCards = groupedImages[currentGroupRef.current].map(
+				(_, i) => cards[currentGroupRef.current * 3 + i]
+			);
+			const nextCards = groupedImages[groupIndex].map(
+				(_, i) => cards[groupIndex * 3 + i]
+			);
 
-			if (startCard && targetCard) {
-				// Animate current card out
-				gsap.to(startCard, {
-					x: (Math.random() - 0.5) * window.innerWidth * 2,
-					y: index > currentIndexRef.current ? -window.innerHeight * 1.5 : window.innerHeight * 1.5,
-					rotation: (Math.random() - 0.5) * 60,
-					scale: 0.8,
-					opacity: 0,
-					duration: 0.8,
-					ease: "power2.in",
-				});
+			// Hide all other cards
+			cards.forEach((card, i) => {
+				if (!currentCards.includes(card) && !nextCards.includes(card)) {
+					gsap.set(card, { opacity: 0 });
+				}
+			});
 
-				// Animate target card in
-				gsap.fromTo(targetCard,
-					{
-						x: (Math.random() - 0.5) * window.innerWidth * 2,
-						y: index > currentIndexRef.current ? window.innerHeight * 1.5 : -window.innerHeight * 1.5,
-						rotation: (Math.random() - 0.5) * 60,
-						scale: 0.8,
-						opacity: 0,
-					},
-					{
-						x: 0,
-						y: 0,
-						rotation: (Math.random() - 0.5) * 20,
-						scale: 1,
-						opacity: 1,
-						duration: 0.8,
-						ease: "power2.out",
-						onComplete: () => {
-							isAnimatingRef.current = false;
+			// Fade out current group
+			gsap.to(currentCards, {
+				opacity: 0,
+				scale: 0.8,
+				duration: 0.4,
+				ease: "power2.inOut",
+				stagger: 0.1,
+			});
+
+			// Fade in next group
+			nextCards.forEach((card, i) => {
+				if (card) {
+					const xOffset = i === 1 ? 0 : i === 0 ? -window.innerWidth * 0.25 : window.innerWidth * 0.25;
+					const rotation = i === 1 ? 0 : i === 0 ? 2 : -2;
+
+					gsap.fromTo(card,
+						{
+							opacity: 0,
+							scale: 0.8,
+							x: xOffset,
+							rotation: rotation,
+						},
+						{
+							opacity: 1,
+							scale: 1,
+							x: xOffset,
+							rotation: rotation,
+							duration: 0.5,
+							delay: 0.2 + i * 0.1,
+							ease: "power2.out",
+							onComplete: () => {
+								if (i === 1) {
+									isAnimatingRef.current = false;
+									currentGroupRef.current = groupIndex;
+									hasReachedEndRef.current = groupIndex === totalGroups - 1;
+								}
+							}
 						}
-					}
-				);
-			}
-
-			currentIndexRef.current = index;
+					);
+				}
+			});
 		};
 
-		// Set up initial card states
-		cards.forEach((card, index) => {
-			if (!card) return;
-			gsap.set(card, {
-				zIndex: totalCards - index,
-				rotation: (Math.random() - 0.5) * 20,
-				scale: 1,
-				opacity: index === 0 ? 1 : 0,
-				filter: "brightness(0.8)",
-			});
+		// Set initial states
+		groupedImages[0].forEach((_, i) => {
+			const card = cards[i];
+			if (card) {
+				const xOffset = i === 1 ? 0 : i === 0 ? -window.innerWidth * 0.2 : window.innerWidth * 0.2;
+				const rotation = i === 1 ? 0 : i === 0 ? 2 : -2;
+
+				gsap.set(card, {
+					opacity: 1,
+					scale: 1,
+					x: xOffset,
+					rotation: rotation,
+				});
+			}
 		});
 
-		// Handle wheel events for snapping
+		// Hide other cards
+		cards.slice(3).forEach(card => {
+			if (card) gsap.set(card, { opacity: 0 });
+		});
+
 		const handleWheel = (e: WheelEvent) => {
+			if (hasReachedEndRef.current && e.deltaY > 0) return;
 			e.preventDefault();
 
-			if (isAnimatingRef.current) return;
+			const now = Date.now();
+			const timeDiff = now - lastWheelTime.current;
 
-			const delta = e.deltaY;
-			let nextIndex = currentIndexRef.current;
-
-			if (delta > 0 && nextIndex < totalCards - 1) {
-				nextIndex++;
-			} else if (delta < 0 && nextIndex > 0) {
-				nextIndex--;
+			if (timeDiff > 150) {
+				wheelDeltaY.current = 0;
 			}
 
-			if (nextIndex !== currentIndexRef.current) {
-				snapToIndex(nextIndex);
+			wheelDeltaY.current += Math.abs(e.deltaY);
+			lastWheelTime.current = now;
+
+			if (wheelTimeoutRef.current) {
+				clearTimeout(wheelTimeoutRef.current);
 			}
-		};
 
-		// Handle keyboard navigation
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (isAnimatingRef.current) return;
-
-			let nextIndex = currentIndexRef.current;
-
-			if (e.key === 'ArrowUp' && nextIndex > 0) {
-				nextIndex--;
-				snapToIndex(nextIndex);
-			} else if (e.key === 'ArrowDown' && nextIndex < totalCards - 1) {
-				nextIndex++;
-				snapToIndex(nextIndex);
-			}
-		};
-
-		// Add event listeners
-		container.addEventListener('wheel', handleWheel, { passive: false });
-		window.addEventListener('keydown', handleKeyDown);
-
-		// Set up ScrollTrigger
-		const st = ScrollTrigger.create({
-			trigger: container,
-			start: "top top",
-			end: `+=${scrollHeight}`,
-			onUpdate: (self) => {
-				if (!isAnimatingRef.current) {
-					const newIndex = Math.round(self.progress * (totalCards - 1));
-					if (newIndex !== currentIndexRef.current) {
-						snapToIndex(newIndex);
+			wheelTimeoutRef.current = setTimeout(() => {
+				if (wheelDeltaY.current > 50) {
+					let nextGroup = currentGroupRef.current;
+					if (e.deltaY > 0 && nextGroup < totalGroups - 1) {
+						nextGroup++;
+					} else if (e.deltaY < 0 && nextGroup > 0) {
+						nextGroup--;
 					}
+
+					snapToGroup(nextGroup);
 				}
-			}
-		});
+				wheelDeltaY.current = 0;
+			}, 30);
+		};
+
+		container.addEventListener('wheel', handleWheel, { passive: false });
 
 		return () => {
 			container.removeEventListener('wheel', handleWheel);
-			window.removeEventListener('keydown', handleKeyDown);
-			if (st) st.kill();
-			if (scrollTween) scrollTween.kill();
+			if (wheelTimeoutRef.current) {
+				clearTimeout(wheelTimeoutRef.current);
+			}
 		};
 	}, []);
 
+	// ... (previous imports and setup remain the same)
+
 	return (
-		<section ref={containerRef} className="relative w-screen border-b-4 border-black bg-light-purple">
+		<section
+			ref={containerRef}
+			className="relative w-screen border-b-4 border-black bg-light-purple overflow-hidden"
+		>
 			<div className="sticky top-0 h-screen overflow-hidden">
 				<MorphingGradientBackground />
-				<div className="absolute inset-0 flex items-start justify-center pt-20"> {/* Changed to items-start and pt-20 */}
-					<div className="w-[60vw] h-[60vh] md:w-[55vw] md:h-[55vh] lg:w-[50vw] lg:h-[50vh] relative">
+
+				<div className="absolute top-0 left-0 w-full z-10">
+					<Marquee
+						direction="right"
+						speed={50}
+						className="w-screen h-48 text-[10rem] font-rumble"
+					>
+						BEAUTY &amp; EDITORIAL &amp;
+					</Marquee>
+				</div>
+
+				<div className="absolute inset-0 flex items-center justify-center">
+					<div className="relative w-[90vw] h-[70vh]">
 						{images.map((image, index) => (
 							<div
 								key={image.id}
 								ref={el => cardsRef.current[index] = el}
-								className="absolute inset-0 w-full h-full"
+								className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
 								style={{
-									perspective: '1000px',
-									transformStyle: 'preserve-3d',
+									width: image.orientation === 'vertical' ? '20%' : '25%',
+									height: '100%',
+									opacity: 0,
 								}}
 							>
 								<ThreeJSImage
 									src={`/assets/beauty_and_editorial/${image.src}`}
 									alt={image.alt}
-									priority={index < 2}
+									priority={index < 3}
 									className="w-full h-full"
 								/>
 							</div>

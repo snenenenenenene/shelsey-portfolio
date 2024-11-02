@@ -13,7 +13,7 @@ gsap.registerPlugin(ScrollTrigger);
 export default function Home() {
   const mainRef = useRef(null);
   const horizontalRef = useRef(null);
-  const sectionsRef: any = useRef(null);
+  const sectionsRef = useRef(null);
 
   useEffect(() => {
     const sections = gsap.utils.toArray("main > section");
@@ -42,30 +42,20 @@ export default function Home() {
         invalidateOnRefresh: true,
         anticipatePin: 1,
         onUpdate: (self) => {
-          // Prevent scrolling beyond the SFXAndGrime section
-          if (self.progress >= 1) {
+          // Prevent scrolling beyond bounds
+          if (self.progress === 1) {
             window.scrollTo(0, self.end - 1);
           }
-        },
-      }
-    });
-
-    // Prevent vertical scrolling after entering SFX section
-    ScrollTrigger.create({
-      trigger: horizontalRef.current,
-      start: "top top",
-      end: "bottom bottom",
-      onEnter: () => {
-        document.body.style.overflow = "hidden";
-      },
-      onLeaveBack: () => {
-        document.body.style.overflow = "";
+          if (self.progress === 0 && self.direction < 0) {
+            window.scrollTo(0, self.start - 1);
+          }
+        }
       }
     });
 
     return () => {
+      horizontalScroll.kill();
       ScrollTrigger.getAll().forEach(t => t.kill());
-      document.body.style.overflow = "";
     };
   }, []);
 

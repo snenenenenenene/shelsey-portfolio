@@ -11,13 +11,6 @@ interface ThreeJSImageProps {
 	className?: string;
 }
 
-const normalizeMousePosition = (event: MouseEvent, element: HTMLElement) => {
-	const rect = element.getBoundingClientRect();
-	const x = (event.clientX - rect.left) / rect.width;
-	const y = 1 - (event.clientY - rect.top) / rect.height;
-	return { x, y };
-};
-
 export default function ThreeJSImage({ src, alt, priority = false, className = '' }: ThreeJSImageProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -26,6 +19,11 @@ export default function ThreeJSImage({ src, alt, priority = false, className = '
 	const isHoveringRef = useRef(false);
 
 	useEffect(() => {
+		// Check if we're on mobile
+		if (window.matchMedia('(max-width: 768px)').matches) {
+			return; // Don't initialize ThreeJS on mobile
+		}
+
 		if (!containerRef.current) return;
 
 		const container = containerRef.current;
@@ -44,6 +42,7 @@ export default function ThreeJSImage({ src, alt, priority = false, className = '
 		renderer.setSize(width, height);
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		container.appendChild(renderer.domElement);
+		rendererRef.current = renderer;
 
 		// Shaders
 		const vertexShader = `
@@ -57,79 +56,84 @@ export default function ThreeJSImage({ src, alt, priority = false, className = '
 		const fragmentShader = `
       uniform sampler2D uTexture;
       uniform vec2 uMouse;
-      uniform float uZoom;
       uniform bool uIsHovering;
+      uniform vec2 uResolution;
+      uniform float uAspectRatio;
       varying vec2 vUv;
 
       void main() {
-        if (!uIsHovering) {
-          gl_FragColor = texture2D(uTexture, vUv);
-          return;
-        }
-
-        vec2 mouse = uMouse;
-        float dist = distance(vUv, mouse);
-        float radius = 0.1;
-        float zoomStrength = 2.0; // Zoom magnification factor
+        vec2 pixelCoord = vUv * uResolution;
+        vec2 mousePixel = uMouse * uResolution;
+        
+        // Adjust coordinates for aspect ratio
+        pixelCoord.x *= uAspectRatio;
+        mousePixel.x *= uAspectRatio;
+        
+        float dist = distance(pixelCoord, mousePixel);
+        float radius = min(uResolution.x, uResolution.y) * 0.1; // 10% of smallest dimension
         
         vec2 zoomedUv = vUv;
-        float zoomMask = 1.0 - smoothstep(radius * 0.8, radius, dist);
+        float mask = step(dist, radius);
         
         if (dist < radius) {
-          vec2 offset = vUv - mouse;
-          zoomedUv = mouse + offset / zoomStrength;
+          vec2 offset = (pixelCoord - mousePixel) / uAspectRatio;
+          vec2 zoomedPixel = mousePixel + offset / 2.0; // Zoom factor of 2
+          zoomedUv = zoomedPixel / uResolution;
+          zoomedUv.x /= uAspectRatio;
         }
 
         vec4 originalColor = texture2D(uTexture, vUv);
         vec4 zoomedColor = texture2D(uTexture, zoomedUv);
         
-        // Add a subtle border around the magnified area
-        float borderWidth = 0.002;
-        float borderMask = smoothstep(radius - borderWidth, radius, dist) * 
-                          (1.0 - smoothstep(radius, radius + borderWidth, dist));
-        vec3 borderColor = vec3(1.0);
-        
-        vec4 finalColor = mix(originalColor, zoomedColor, zoomMask);
-        finalColor.rgb = mix(finalColor.rgb, borderColor, borderMask * 0.5);
-        
-        gl_FragColor = finalColor;
+        gl_FragColor = mix(originalColor, zoomedColor, mask * float(uIsHovering));
       }
     `;
 
 		// Load texture
 		const textureLoader = new THREE.TextureLoader();
-		textureLoader.load(src, (texture) => {
-			texture.minFilter = THREE.LinearFilter;
-			texture.magFilter = THREE.LinearFilter;
-			texture.generateMipmaps = false;
+		textureLoader.load(
+			src,
+			(texture) => {
+				texture.minFilter = THREE.LinearFilter;
+				texture.magFilter = THREE.LinearFilter;
+				texture.generateMipmaps = false;
 
-			const material = new THREE.ShaderMaterial({
-				uniforms: {
-					uTexture: { value: texture },
-					uMouse: { value: new THREE.Vector2(0.5, 0.5) },
-					uIsHovering: { value: false },
-					uZoom: { value: 0.0 }
-				},
-				vertexShader,
-				fragmentShader,
-				transparent: true,
-			});
-			materialRef.current = material;
+				const imageAspect = texture.image.width / texture.image.height;
+				const containerAspect = width / height;
 
-			const geometry = new THREE.PlaneGeometry(2, 2);
-			const mesh = new THREE.Mesh(geometry, material);
-			scene.add(mesh);
+				const material = new THREE.ShaderMaterial({
+					uniforms: {
+						uTexture: { value: texture },
+						uMouse: { value: new THREE.Vector2(0.5, 0.5) },
+						uIsHovering: { value: false },
+						uResolution: { value: new THREE.Vector2(width, height) },
+						uAspectRatio: { value: imageAspect }
+					},
+					vertexShader,
+					fragmentShader,
+					transparent: true,
+				});
+				materialRef.current = material;
 
-			// Scale mesh to maintain aspect ratio
-			const imageAspect = texture.image.width / texture.image.height;
-			const containerAspect = width / height;
+				const geometry = new THREE.PlaneGeometry(2, 2);
+				const mesh = new THREE.Mesh(geometry, material);
+				scene.add(mesh);
 
-			if (imageAspect > containerAspect) {
-				mesh.scale.y = 1 / imageAspect * containerAspect;
-			} else {
-				mesh.scale.x = imageAspect / containerAspect;
+				// Scale mesh to maintain aspect ratio
+				if (imageAspect > containerAspect) {
+					mesh.scale.y = 1 / imageAspect * containerAspect;
+				} else {
+					mesh.scale.x = imageAspect / containerAspect;
+				}
+
+				// Initial render
+				renderer.render(scene, camera);
+			},
+			undefined,
+			(error) => {
+				console.error('Error loading texture:', error);
 			}
-		});
+		);
 
 		// Animation loop
 		let animationFrame: number;
@@ -139,47 +143,35 @@ export default function ThreeJSImage({ src, alt, priority = false, className = '
 				materialRef.current.uniforms.uMouse.value.y = mouseRef.current.y;
 				materialRef.current.uniforms.uIsHovering.value = isHoveringRef.current;
 			}
-
 			renderer.render(scene, camera);
 			animationFrame = requestAnimationFrame(animate);
 		};
-
 		animationFrame = requestAnimationFrame(animate);
 
 		// Event handlers
 		const handleMouseMove = (event: MouseEvent) => {
-			const normalized = normalizeMousePosition(event, container);
-			mouseRef.current = normalized;
+			if (!isHoveringRef.current) return;
+			const rect = container.getBoundingClientRect();
+			mouseRef.current = {
+				x: (event.clientX - rect.left) / rect.width,
+				y: 1.0 - (event.clientY - rect.top) / rect.height
+			};
 		};
 
 		const handleMouseEnter = () => {
 			isHoveringRef.current = true;
-			if (materialRef.current) {
-				gsap.to(materialRef.current.uniforms.uZoom, {
-					value: 1,
-					duration: 0.3,
-					ease: "power2.out"
-				});
-			}
 		};
 
 		const handleMouseLeave = () => {
 			isHoveringRef.current = false;
-			if (materialRef.current) {
-				gsap.to(materialRef.current.uniforms.uZoom, {
-					value: 0,
-					duration: 0.3,
-					ease: "power2.out"
-				});
-			}
 		};
 
-		// Handle resize
 		const handleResize = () => {
 			if (!containerRef.current || !materialRef.current || !renderer) return;
 
 			const { width, height } = containerRef.current.getBoundingClientRect();
 			renderer.setSize(width, height);
+			materialRef.current.uniforms.uResolution.value.set(width, height);
 		};
 
 		// Event listeners
@@ -196,9 +188,20 @@ export default function ThreeJSImage({ src, alt, priority = false, className = '
 			window.removeEventListener('resize', handleResize);
 
 			renderer.dispose();
-			container.removeChild(renderer.domElement);
+			if (container.contains(renderer.domElement)) {
+				container.removeChild(renderer.domElement);
+			}
 		};
 	}, [src]);
+
+	// For mobile, render a simple image
+	if (typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) {
+		return (
+			<div className={`relative ${className}`} style={{ width: '100%', height: '100%' }}>
+				<img src={src} alt={alt} className="w-full h-full object-cover" />
+			</div>
+		);
+	}
 
 	return (
 		<div
